@@ -196,6 +196,16 @@ export async function startPuzzle(
     .attr("width", W)
     .attr("height", H);
 
+  // --- Zoom wrapper ---
+  const zoomG = svg.append("g");
+
+  const zoom = d3.zoom<SVGSVGElement, unknown>()
+    .scaleExtent([0.5, 8])
+    .on("zoom", (event) => {
+      zoomG.attr("transform", event.transform);
+    });
+  svg.call(zoom);
+
   // --- Projection ---
   // geoIdentity + reflectY: 座標を直接スケーリング（geoMercatorだと離島で破綻するため）
   // 離島（小笠原・先島等）で全体が極端に小さくならないよう、
@@ -225,7 +235,7 @@ export async function startPuzzle(
 
   // --- Ghost outlines ---
   if (cfg.showGhost) {
-    svg
+    zoomG
       .append("g")
       .selectAll("path")
       .data(puzzleFeatures)
@@ -290,8 +300,8 @@ export async function startPuzzle(
   }, 1000);
 
   // --- Draw pieces ---
-  const pieceGroup = svg.append("g");
-  const labelGroup = svg.append("g").attr("class", "label-layer");
+  const pieceGroup = zoomG.append("g");
+  const labelGroup = zoomG.append("g").attr("class", "label-layer");
 
   const pathEls = pieceGroup
     .selectAll<SVGPathElement, PieceState>("path")
@@ -333,6 +343,7 @@ export async function startPuzzle(
   // --- Drag ---
   const drag = d3
     .drag<SVGPathElement, PieceState>()
+    .container(zoomG.node()!)
     .on("start", function (_, d) {
       if (d.placed) return;
       d3.select(this).raise().classed("dragging", true);
@@ -349,8 +360,10 @@ export async function startPuzzle(
       const el = d3.select<SVGPathElement, PieceState>(this);
       el.classed("dragging", false);
 
+      const currentScale = d3.zoomTransform(svg.node()!).k;
+      const adjustedSnapDist = snapDist / currentScale;
       const dist = Math.sqrt(d.ox * d.ox + d.oy * d.oy);
-      if (dist < snapDist) {
+      if (dist < adjustedSnapDist) {
         d.ox = 0;
         d.oy = 0;
         d.placed = true;
