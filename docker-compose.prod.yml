@@ -1,6 +1,6 @@
 services:
   web:
-    build: ./apps/web
+    image: ghcr.io/torifo/shikuty-web:latest
     container_name: shikuty-web
     restart: unless-stopped
     environment:
@@ -15,7 +15,7 @@ services:
       - internal
 
   api:
-    build: ./apps/api
+    image: ghcr.io/torifo/shikuty-api:latest
     container_name: shikuty-api
     restart: unless-stopped
     expose:
