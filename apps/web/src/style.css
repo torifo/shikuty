@@ -1,0 +1,343 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  overflow: hidden;
+  height: 100vh;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ヘッダー */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #16213e;
+  border-bottom: 2px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.header-stats {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+}
+
+.header-stats span {
+  color: #a8b2d1;
+}
+
+.header-stats .value {
+  color: #64ffda;
+  font-weight: 700;
+}
+
+/* 選択画面 */
+.select-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 20px;
+}
+
+.select-screen h2 {
+  font-size: 28px;
+  color: #64ffda;
+}
+
+.select-screen p {
+  color: #a8b2d1;
+  font-size: 14px;
+}
+
+.prefecture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.prefecture-btn {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  color: #ccd6f6;
+  padding: 10px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.prefecture-btn:hover {
+  background: #0f3460;
+  border-color: #64ffda;
+  color: #64ffda;
+}
+
+/* パズル画面 */
+.puzzle-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.puzzle-area {
+  flex: 1;
+  position: relative;
+}
+
+.puzzle-area svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* パズルピース */
+.piece {
+  cursor: grab;
+  stroke: #333;
+  stroke-width: 0.5;
+}
+
+.piece:hover {
+  filter: brightness(1.3);
+}
+
+.piece.dragging {
+  cursor: grabbing;
+  filter: brightness(1.4) drop-shadow(0 0 6px rgba(100, 255, 218, 0.6));
+}
+
+.piece.placed {
+  cursor: default;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 0.3;
+}
+
+/* ゴースト（正解位置の影） */
+.ghost {
+  fill: rgba(100, 255, 218, 0.05);
+  stroke: #2a2a4e;
+  stroke-width: 0.5;
+  pointer-events: none;
+}
+
+/* ツールチップ */
+.tooltip {
+  position: absolute;
+  background: rgba(22, 33, 62, 0.95);
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 50;
+  white-space: nowrap;
+}
+
+/* 完了メッセージ */
+.complete-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 100;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.complete-overlay h2 {
+  font-size: 36px;
+  color: #64ffda;
+}
+
+.complete-overlay p {
+  font-size: 18px;
+  color: #a8b2d1;
+}
+
+.btn-primary {
+  padding: 12px 32px;
+  background: #64ffda;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: #4ad8b7;
+}
+
+/* ローディング */
+.loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #a8b2d1;
+}
+
+.back-btn {
+  background: none;
+  border: 1px solid #a8b2d1;
+  color: #a8b2d1;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.back-btn:hover {
+  border-color: #64ffda;
+  color: #64ffda;
+}
+
+/* モード選択カード */
+.mode-cards {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.mode-card {
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 12px;
+  padding: 32px 40px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  color: #ccd6f6;
+  width: 240px;
+}
+
+.mode-card:hover {
+  border-color: #64ffda;
+  background: #0f3460;
+  transform: translateY(-4px);
+}
+
+.mode-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.mode-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #e6f1ff;
+}
+
+.mode-desc {
+  font-size: 13px;
+  color: #a8b2d1;
+}
+
+.mode-pieces {
+  font-size: 11px;
+  color: #64ffda;
+  margin-top: 8px;
+}
+
+/* 難易度トグル */
+.difficulty-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.diff-btn {
+  background: transparent;
+  border: 1px solid #0f3460;
+  color: #a8b2d1;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.diff-btn:hover {
+  border-color: #64ffda;
+  color: #64ffda;
+}
+
+.diff-btn.active {
+  background: #0f3460;
+  border-color: #64ffda;
+  color: #64ffda;
+  font-weight: 700;
+}
+
+.diff-label {
+  background: #0f3460;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #64ffda;
+}
+
+/* 地方選択 */
+.region-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-width: 640px;
+  width: 100%;
+}
+
+.region-btn {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  color: #ccd6f6;
+  padding: 18px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.region-btn:hover {
+  background: #0f3460;
+  border-color: #64ffda;
+  color: #64ffda;
+}

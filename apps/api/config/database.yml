@@ -1,0 +1,22 @@
+default: &default
+  adapter: postgis
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: localhost
+  port: 54321
+  username: shikuty
+  password: shikuty
+
+development:
+  <<: *default
+  database: shikuty_development
+
+test:
+  <<: *default
+  database: shikuty_test
+
+production:
+  <<: *default
+  database: shikuty_production
+  username: shikuty
+  password: <%= ENV["SHIKUTY_DATABASE_PASSWORD"] %>

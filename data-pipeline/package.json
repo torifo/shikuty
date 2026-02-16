@@ -1,0 +1,15 @@
+{
+  "name": "shikuty-data-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TopoJSON conversion tools for Shikuty data pipeline",
+  "scripts": {
+    "convert": "bash scripts/07_topojson_convert.sh"
+  },
+  "dependencies": {
+    "mapshaper": "^0.6.113",
+    "topojson-client": "^3.1.0",
+    "topojson-server": "^3.0.1",
+    "topojson-simplify": "^3.0.3"
+  }
+}

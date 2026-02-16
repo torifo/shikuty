@@ -1,0 +1,44 @@
+# Data pipeline - large data files
+data-pipeline/data/raw/
+data-pipeline/data/interim/
+data-pipeline/data/output/
+data-pipeline/data/.stamps/
+
+# Node
+node_modules/
+data-pipeline/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Rails
+apps/api/log/*.log
+apps/api/tmp/
+apps/api/storage/
+apps/api/config/master.key
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite build output
+apps/web/dist/
+
+# Reports
+reports/
+
+# Environment
+.env
+.env.local
+.env.*.local

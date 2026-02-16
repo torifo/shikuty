@@ -1,0 +1,61 @@
+# Data Pipeline Settings
+
+sources:
+  n03:
+    # 国土数値情報 N03 行政区域データ (2024年)
+    url: "https://nlftp.mlit.go.jp/ksj/gml/data/N03/N03-2024/N03-20240101_GML.zip"
+    filename: "N03-20240101_GML.zip"
+  srtm:
+    # SRTM 30m DEM - Japan covers N24-N46, E122-E154
+    base_url: "https://elevation-tiles-prod.s3.amazonaws.com/skadi"
+    lat_range: [24, 46]
+    lon_range: [122, 154]
+
+projection:
+  source_crs: "EPSG:6668"  # JGD2011
+  target_crs: "EPSG:4326"  # WGS84
+
+simplification:
+  # Python topojson library settings
+  tolerance: 0.0001  # ~11m in degrees
+  algorithm: "Visvalingam"
+
+  # Node.js topojson-cli settings
+  quantization: 1e5
+  toposimplify_weight: 1e-7
+  toposimplify_filter: true
+
+dissolve:
+  key: "N03_007"  # JIS市区町村コード
+
+columns:
+  # N03 attribute mapping
+  prefecture_code: "N03_001"
+  prefecture_name: "N03_001"
+  municipality_name: "N03_003"  # 市区町村名
+  district_name: "N03_004"      # 郡・政令市名
+  code: "N03_007"               # 全国地方公共団体コード
+
+elevation:
+  stats: ["min", "max", "mean", "median", "std"]
+
+output:
+  file_size_limits:
+    national_topojson_mb: 5
+    prefectural_topojson_kb: 300
+    national_prefecture_only_kb: 500
+
+database:
+  host: "localhost"
+  port: 54321
+  name: "shikuty_development"
+  user: "shikuty"
+  password: "shikuty"
+  schema: "public"
+  table: "municipalities"
+
+paths:
+  raw: "data/raw"
+  interim: "data/interim"
+  output: "data/output"
+  topojson: "data/output/topojson"

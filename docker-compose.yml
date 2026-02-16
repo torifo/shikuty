@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    container_name: shikuty-db
+    environment:
+      POSTGRES_USER: shikuty
+      POSTGRES_PASSWORD: shikuty
+      POSTGRES_DB: shikuty_development
+    ports:
+      - "54321:5432"
+    volumes:
+      - shikuty_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shikuty -d shikuty_development"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  shikuty_pgdata:
