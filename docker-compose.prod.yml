@@ -27,6 +27,8 @@ services:
       - DATABASE_PORT=5432
       - SHIKUTY_DATABASE_PASSWORD=${SHIKUTY_DATABASE_PASSWORD}
       - RAILS_LOG_TO_STDOUT=1
+    volumes:
+      - /opt/shikuty/data/topojson:/data-pipeline/data/output/topojson:ro
     depends_on:
       db:
         condition: service_healthy
