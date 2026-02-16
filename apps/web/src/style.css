@@ -119,8 +119,6 @@ body {
 /* パズルピース */
 .piece {
   cursor: grab;
-  stroke: #333;
-  stroke-width: 0.5;
 }
 
 .piece:hover {
@@ -363,4 +361,139 @@ body {
   background: #0f3460;
   border-color: #64ffda;
   color: #64ffda;
+}
+
+/* === タブレット (481px〜768px) === */
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 15px;
+  }
+
+  .header-stats {
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .mode-cards {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .mode-card {
+    width: 200px;
+    padding: 24px 20px;
+  }
+
+  .mode-icon {
+    font-size: 36px;
+  }
+
+  .mode-title {
+    font-size: 17px;
+  }
+
+  .prefecture-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .select-screen h2 {
+    font-size: 22px;
+  }
+
+  .complete-overlay h2 {
+    font-size: 28px;
+  }
+
+  .complete-overlay p {
+    font-size: 15px;
+  }
+}
+
+/* === スマホ (480px以下) === */
+@media (max-width: 480px) {
+  .header {
+    padding: 6px 10px;
+  }
+
+  .header h1 {
+    font-size: 13px;
+  }
+
+  .header-stats {
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .diff-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .mode-cards {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mode-card {
+    width: 100%;
+    max-width: 280px;
+    padding: 20px 16px;
+  }
+
+  .mode-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+
+  .mode-title {
+    font-size: 16px;
+  }
+
+  .mode-desc {
+    font-size: 12px;
+  }
+
+  .select-screen {
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .select-screen h2 {
+    font-size: 20px;
+  }
+
+  .prefecture-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .prefecture-btn {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .region-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .region-btn {
+    padding: 14px 8px;
+    font-size: 14px;
+  }
+
+  .complete-overlay h2 {
+    font-size: 24px;
+  }
+
+  .complete-overlay p {
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    padding: 10px 24px;
+    font-size: 14px;
+  }
 }

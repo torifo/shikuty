@@ -36,12 +36,16 @@ interface DifficultyConfig {
   ghostOpacity: number;
   /** show name on hover */
   showTooltip: boolean;
+  /** piece border width */
+  strokeWidth: number;
+  /** piece border color */
+  strokeColor: string;
 }
 
 const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
-  easy: { snapFraction: 0.06, showGhost: true, ghostOpacity: 0.12, showTooltip: true },
-  normal: { snapFraction: 0.03, showGhost: true, ghostOpacity: 0.05, showTooltip: true },
-  hard: { snapFraction: 0.015, showGhost: false, ghostOpacity: 0, showTooltip: false },
+  easy: { snapFraction: 0.06, showGhost: true, ghostOpacity: 0.12, showTooltip: true, strokeWidth: 1.5, strokeColor: "#555" },
+  normal: { snapFraction: 0.03, showGhost: true, ghostOpacity: 0.05, showTooltip: true, strokeWidth: 0.8, strokeColor: "#444" },
+  hard: { snapFraction: 0.015, showGhost: false, ghostOpacity: 0, showTooltip: false, strokeWidth: 0.3, strokeColor: "#333" },
 };
 
 // --- Colors ---
@@ -196,17 +200,27 @@ export async function startPuzzle(
   // geoIdentity + reflectY: 座標を直接スケーリング（geoMercatorだと離島で破綻するため）
   // 離島（小笠原・先島等）で全体が極端に小さくならないよう、
   // 面積上位95%のフィーチャーのbboxでフィットさせる
-  const mainFc = buildMainExtentFc(puzzleFeatures);
+  const mainFc = buildMainExtentFc(puzzleFeatures, opts.mode);
+
+  // デバイス幅に応じてマップ領域とスキャッタ領域を切り替え
+  const isPhone = W <= 480;
+  const isTablet = W > 480 && W <= 768;
+
+  let fitExtentBox: [[number, number], [number, number]];
+  if (isPhone) {
+    // スマホ: 上下分割（マップ上65%、ピース下35%）
+    fitExtentBox = [[W * 0.03, H * 0.03], [W * 0.97, H * 0.60]];
+  } else if (isTablet) {
+    // タブレット: 左右分割（マップ広め60%）
+    fitExtentBox = [[W * 0.03, H * 0.02], [W * 0.58, H * 0.95]];
+  } else {
+    // PC: 左右分割（マップ左55%）
+    fitExtentBox = [[W * 0.05, H * 0.02], [W * 0.55, H * 0.95]];
+  }
 
   const projection = d3.geoIdentity()
     .reflectY(true)
-    .fitExtent(
-      [
-        [W * 0.05, H * 0.05],
-        [W * 0.55, H * 0.95],
-      ],
-      mainFc
-    );
+    .fitExtent(fitExtentBox, mainFc);
   const pathGen = d3.geoPath(projection);
 
   // --- Ghost outlines ---
@@ -239,8 +253,20 @@ export async function startPuzzle(
   const pieces: PieceState[] = shuffle(puzzleFeatures).map((f) => {
     const name = getName(f);
     const centroid = pathGen.centroid(f);
-    const scatterX = W * 0.62 + Math.random() * W * 0.3;
-    const scatterY = H * 0.05 + Math.random() * H * 0.84;
+    let scatterX: number, scatterY: number;
+    if (isPhone) {
+      // スマホ: 下部にスキャッタ
+      scatterX = W * 0.05 + Math.random() * W * 0.85;
+      scatterY = H * 0.65 + Math.random() * H * 0.27;
+    } else if (isTablet) {
+      // タブレット: 右側にスキャッタ（やや狭め）
+      scatterX = W * 0.62 + Math.random() * W * 0.33;
+      scatterY = H * 0.05 + Math.random() * H * 0.84;
+    } else {
+      // PC: 右側にスキャッタ
+      scatterX = W * 0.62 + Math.random() * W * 0.3;
+      scatterY = H * 0.05 + Math.random() * H * 0.84;
+    }
     return {
       feature: f,
       ox: scatterX - centroid[0],
@@ -274,6 +300,8 @@ export async function startPuzzle(
     .attr("class", "piece")
     .attr("d", (d) => pathGen(d.feature) ?? "")
     .attr("fill", (_, i) => PALETTE[i % PALETTE.length])
+    .style("stroke", cfg.strokeColor)
+    .style("stroke-width", cfg.strokeWidth)
     .attr("transform", (d) => `translate(${d.ox},${d.oy})`);
 
   // --- Tooltip ---
@@ -373,9 +401,11 @@ export async function startPuzzle(
  * 重心が大きく外れるフィーチャー（離島）を除外して投影範囲を決定する。
  */
 function buildMainExtentFc(
-  features: Feature<Geometry, AnyProps>[]
+  features: Feature<Geometry, AnyProps>[],
+  mode: PuzzleOptions["mode"] = "prefecture"
 ): FeatureCollection {
-  if (features.length <= 3) {
+  // japan モードでは全都道府県を表示する必要があるためカットオフなし
+  if (mode === "japan" || features.length <= 3) {
     return { type: "FeatureCollection", features };
   }
 
