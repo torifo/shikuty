@@ -54,6 +54,38 @@ const PALETTE = [
   "#94d2bd", "#0a9396", "#005f73", "#540b0e", "#283618",
 ];
 
+/**
+ * 地形色: area_km2 に基づく色分け
+ * 小面積（都市部）→ 緑、大面積（山間部）→ 茶色
+ */
+function terrainColor(areaKm2: number): string {
+  // 面積の対数スケールで 0-1 に正規化
+  // ~10km2(都心) → 0, ~1000km2(山間部) → 1
+  const logMin = Math.log10(5);
+  const logMax = Math.log10(1500);
+  const t = Math.max(0, Math.min(1, (Math.log10(Math.max(1, areaKm2)) - logMin) / (logMax - logMin)));
+
+  // 緑(都市) → 黄緑 → 黄 → 茶(山間部)
+  const colors = [
+    [76, 175, 80],   // 緑 (#4CAF50)
+    [139, 195, 74],  // 黄緑 (#8BC34A)
+    [205, 220, 57],  // ライム (#CDDC39)
+    [255, 193, 7],   // アンバー (#FFC107)
+    [141, 110, 99],  // 茶 (#8D6E63)
+    [93, 64, 55],    // 濃茶 (#5D4037)
+  ];
+
+  const idx = t * (colors.length - 1);
+  const i = Math.min(Math.floor(idx), colors.length - 2);
+  const f = idx - i;
+  const c0 = colors[i];
+  const c1 = colors[i + 1];
+  const r = Math.round(c0[0] + (c1[0] - c0[0]) * f);
+  const g = Math.round(c0[1] + (c1[1] - c0[1]) * f);
+  const b = Math.round(c0[2] + (c1[2] - c0[2]) * f);
+  return `rgb(${r},${g},${b})`;
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -233,6 +265,7 @@ export async function startPuzzle(
 
   // --- Draw pieces ---
   const pieceGroup = svg.append("g");
+  const labelGroup = svg.append("g").attr("class", "label-layer");
 
   const pathEls = pieceGroup
     .selectAll<SVGPathElement, PieceState>("path")
@@ -293,12 +326,31 @@ export async function startPuzzle(
         d.ox = 0;
         d.oy = 0;
         d.placed = true;
+
+        // 地形色に変更
+        const area = (d.feature.properties?.area_km2 as number) ?? 100;
+        const tColor = terrainColor(area);
         el.transition()
           .duration(200)
           .attr("transform", "translate(0,0)")
-          .attr("fill", "#2a9d8f");
+          .attr("fill", tColor);
         el.classed("placed", true);
         el.on(".drag", null);
+
+        // 名前ラベルを表示
+        const centroid = pathGen.centroid(d.feature);
+        if (centroid && isFinite(centroid[0]) && isFinite(centroid[1])) {
+          const bounds = pathGen.bounds(d.feature);
+          const pieceW = bounds[1][0] - bounds[0][0];
+          const fontSize = Math.max(6, Math.min(14, pieceW * 0.25));
+          labelGroup
+            .append("text")
+            .attr("class", "piece-label")
+            .attr("x", centroid[0])
+            .attr("y", centroid[1])
+            .attr("font-size", fontSize)
+            .text(d.name);
+        }
 
         placedCount++;
         countEl.textContent = `${placedCount}/${totalCount}`;
