@@ -40,12 +40,16 @@ interface DifficultyConfig {
   strokeWidth: number;
   /** piece border color */
   strokeColor: string;
+  /** show drag name bar on mobile */
+  showDragNameBar: boolean;
+  /** enable time-based hints (easy mode) */
+  enableHints: boolean;
 }
 
 const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
-  easy: { snapFraction: 0.06, showGhost: true, ghostOpacity: 0.12, showTooltip: true, strokeWidth: 1.5, strokeColor: "#555" },
-  normal: { snapFraction: 0.03, showGhost: true, ghostOpacity: 0.05, showTooltip: true, strokeWidth: 0.8, strokeColor: "#444" },
-  hard: { snapFraction: 0.015, showGhost: false, ghostOpacity: 0, showTooltip: false, strokeWidth: 0.3, strokeColor: "#333" },
+  easy: { snapFraction: 0.06, showGhost: true, ghostOpacity: 0.12, showTooltip: true, strokeWidth: 1.5, strokeColor: "#555", showDragNameBar: true, enableHints: true },
+  normal: { snapFraction: 0.03, showGhost: true, ghostOpacity: 0.05, showTooltip: true, strokeWidth: 0.8, strokeColor: "#444", showDragNameBar: true, enableHints: false },
+  hard: { snapFraction: 0.015, showGhost: false, ghostOpacity: 0, showTooltip: false, strokeWidth: 0.3, strokeColor: "#333", showDragNameBar: false, enableHints: false },
 };
 
 // --- Colors ---
@@ -127,6 +131,7 @@ export async function startPuzzle(
       </div>
     </div>
     <div class="puzzle-screen">
+      <div class="drag-name-bar" id="drag-name-bar"></div>
       <div class="puzzle-area">
         <div class="loading">読み込み中...</div>
       </div>
@@ -234,9 +239,10 @@ export async function startPuzzle(
   const pathGen = d3.geoPath(projection);
 
   // --- Ghost outlines ---
+  let ghostGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   if (cfg.showGhost) {
-    zoomG
-      .append("g")
+    ghostGroup = zoomG.append("g");
+    ghostGroup
       .selectAll("path")
       .data(puzzleFeatures)
       .join("path")
@@ -340,6 +346,39 @@ export async function startPuzzle(
   // --- Snap threshold ---
   const snapDist = Math.min(W, H) * cfg.snapFraction;
 
+  // --- Drag name bar (mobile) ---
+  const dragNameBar = app.querySelector<HTMLDivElement>("#drag-name-bar")!;
+
+  // --- Hint helpers ---
+  let hintTimer: ReturnType<typeof setInterval> | null = null;
+
+  function highlightGhost(feature: Feature<Geometry, AnyProps>) {
+    if (!ghostGroup) return;
+    ghostGroup.selectAll<SVGPathElement, Feature<Geometry, AnyProps>>("path")
+      .classed("ghost-hint", (g) => g === feature);
+  }
+
+  function clearGhostHint() {
+    ghostGroup?.selectAll("path").classed("ghost-hint", false);
+  }
+
+  function attractToTarget(d: PieceState, el: d3.Selection<SVGPathElement, PieceState, null, undefined>) {
+    d.ox *= 0.9;
+    d.oy *= 0.9;
+    el.attr("transform", `translate(${d.ox},${d.oy})`);
+  }
+
+  function cleanupHint() {
+    if (hintTimer !== null) {
+      clearInterval(hintTimer);
+      hintTimer = null;
+    }
+    clearGhostHint();
+    if (cfg.showDragNameBar) {
+      dragNameBar.style.display = "none";
+    }
+  }
+
   // --- Drag ---
   const drag = d3
     .drag<SVGPathElement, PieceState>()
@@ -348,6 +387,38 @@ export async function startPuzzle(
       if (d.placed) return;
       d3.select(this).raise().classed("dragging", true);
       tip.style("display", "none");
+
+      // Show drag name bar (mobile)
+      if (cfg.showDragNameBar) {
+        dragNameBar.textContent = d.name;
+        dragNameBar.style.display = "block";
+      }
+
+      // Hint system (easy mode)
+      if (cfg.enableHints && ghostGroup) {
+        const holdStart = Date.now();
+        const gameElapsed = (Date.now() - t0) / 1000;
+        const remaining = totalCount - placedCount;
+        const baseTime = Math.max(180, Math.min(300, totalCount * 6));
+        const hintThreshold = (remaining / totalCount) * baseTime;
+        const immediateHint = gameElapsed > hintThreshold;
+        const immediateAnswer = gameElapsed > hintThreshold * 1.5;
+
+        if (immediateHint) {
+          highlightGhost(d.feature);
+        }
+
+        const el = d3.select<SVGPathElement, PieceState>(this);
+        hintTimer = setInterval(() => {
+          const holdSec = (Date.now() - holdStart) / 1000;
+          if (immediateHint || holdSec > 60) {
+            highlightGhost(d.feature);
+          }
+          if (immediateAnswer || holdSec > 90) {
+            attractToTarget(d, el);
+          }
+        }, 1000);
+      }
     })
     .on("drag", function (ev, d) {
       if (d.placed) return;
@@ -359,6 +430,7 @@ export async function startPuzzle(
       if (d.placed) return;
       const el = d3.select<SVGPathElement, PieceState>(this);
       el.classed("dragging", false);
+      cleanupHint();
 
       const currentScale = d3.zoomTransform(svg.node()!).k;
       const adjustedSnapDist = snapDist / currentScale;

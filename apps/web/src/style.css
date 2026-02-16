@@ -167,6 +167,33 @@ body {
   pointer-events: none;
 }
 
+/* ゴーストヒント発光 */
+.ghost-hint {
+  fill: rgba(100, 255, 218, 0.35) !important;
+  stroke: rgba(100, 255, 218, 0.8) !important;
+  stroke-width: 2px !important;
+  animation: ghostPulse 1s ease-in-out infinite;
+}
+
+@keyframes ghostPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ドラッグ中の名前バー（スマホ用） */
+.drag-name-bar {
+  display: none;
+  background: rgba(22, 33, 62, 0.95);
+  border-bottom: 2px solid #64ffda;
+  color: #64ffda;
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  z-index: 60;
+  flex-shrink: 0;
+}
+
 /* ツールチップ */
 .tooltip {
   position: absolute;
