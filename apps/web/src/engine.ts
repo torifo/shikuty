@@ -343,8 +343,8 @@ export async function startPuzzle(
     const p = f.properties!;
     if (opts.mode === "japan") return (p.prefecture_name as string) ?? "";
     return (
-      (p.municipality_name as string) ||
-      (p.district_name as string) ||
+      (p.district_name as string) ||      // 市区町村名（N03_004）を優先
+      (p.municipality_name as string) ||  // 郡名・政令市名はフォールバック
       (p.full_name as string) ||
       ""
     );
@@ -542,8 +542,10 @@ export async function startPuzzle(
           const bounds = pathGen.bounds(d.feature);
           const pw = bounds[1][0] - bounds[0][0];
           const ph = bounds[1][1] - bounds[0][1];
-          if (pw < 10 && ph < 10) return; // 極小ピースはラベル省略
-          const fontSize = Math.max(6, Math.min(13, Math.min(pw, ph) * 0.28));
+          const maxByWidth  = pw / Math.max(1, d.name.length);
+          const maxByHeight = ph * 0.55;
+          const fontSize = Math.min(13, maxByWidth, maxByHeight);
+          if (fontSize < 4) return;
           labelGroup
             .append("text")
             .attr("class", "piece-label")
@@ -784,19 +786,23 @@ export async function startPreview(
       tip.style("display", "none");
     });
 
-  // 常時ラベル: ピースが十分大きい場合のみ表示（重なり防止）
-  // 幅・高さどちらかが MIN_LABEL_DIM px 未満なら省略し、ホバーで補完
-  const MIN_LABEL_DIM = 22;
+  // 常時ラベル: 全ピースに表示。フォントはピース内に収まる最大サイズ。
+  // CJK 文字は全角なので 1文字 ≈ fontSize px として幅を推定。
   const labelGroup = zoomG.append("g").attr("class", "label-layer");
   features.forEach(f => {
     const name = getNameLocal(f);
+    if (!name) return;
     const centroid = pathGen.centroid(f);
     if (!centroid || !isFinite(centroid[0]) || !isFinite(centroid[1])) return;
     const bounds = pathGen.bounds(f);
     const pw = bounds[1][0] - bounds[0][0];
     const ph = bounds[1][1] - bounds[0][1];
-    if (pw < MIN_LABEL_DIM || ph < MIN_LABEL_DIM) return;
-    const fontSize = Math.max(7, Math.min(13, Math.min(pw, ph) * 0.28));
+    // 幅: name.length文字が収まる最大フォント (CJK 1文字 ≈ 1em)
+    const maxByWidth  = pw / Math.max(1, name.length);
+    // 高さ: ラベル1行分が収まるサイズ
+    const maxByHeight = ph * 0.55;
+    const fontSize = Math.min(13, maxByWidth, maxByHeight);
+    if (fontSize < 4) return; // 4px 未満は視認不可なので省略（ホバーで補完）
     labelGroup.append("text")
       .attr("class", "piece-label")
       .attr("x", centroid[0])
