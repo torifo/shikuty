@@ -43,6 +43,17 @@ def main():
     else:
         print("\nWARNING: No elevation stats found, skipping merge")
 
+    # --- Deduplication safety check ---
+    dup_codes = gdf["code"].duplicated().sum()
+    if dup_codes > 0:
+        print(f"\nWARNING: {dup_codes} duplicate municipality codes detected, re-dissolving...")
+        gdf = gdf.dissolve(by="code", aggfunc="first").reset_index()
+        from lib.geometry import ensure_multipolygon
+        gdf["geometry"] = gdf.geometry.apply(ensure_multipolygon)
+        print(f"  After re-dissolve: {len(gdf)} municipalities")
+    else:
+        print(f"\nNo duplicate codes found ({len(gdf)} municipalities)")
+
     # --- National GeoJSON ---
     print("\n[1/4] Exporting national GeoJSON...")
     national_path = geojson_dir / "japan.geojson"

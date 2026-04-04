@@ -73,9 +73,6 @@ def dissolve_by_code(gdf: gpd.GeoDataFrame, code_col: str) -> gpd.GeoDataFrame:
     N03 data has multiple polygons per municipality (islands, exclaves).
     This merges them into single MultiPolygon per code.
     """
-    # Keep first occurrence of attribute columns for each code
-    attr_cols = [c for c in gdf.columns if c != "geometry" and c != code_col]
-
     print(f"  Dissolving {len(gdf)} polygons by {code_col}")
 
     # Filter out rows with null code (ocean/unincorporated areas)
@@ -84,7 +81,20 @@ def dissolve_by_code(gdf: gpd.GeoDataFrame, code_col: str) -> gpd.GeoDataFrame:
         print(f"  Dropping {null_count} rows with null {code_col}")
         gdf = gdf.dropna(subset=[code_col])
 
+    # Strip whitespace and filter out empty-string codes that isna() misses
+    gdf = gdf.copy()
+    gdf[code_col] = gdf[code_col].astype(str).str.strip()
+    empty_count = (gdf[code_col] == "").sum()
+    if empty_count > 0:
+        print(f"  Dropping {empty_count} rows with empty {code_col}")
+        gdf = gdf[gdf[code_col] != ""]
+
     dissolved = gdf.dissolve(by=code_col, aggfunc="first").reset_index()
+
+    # Verify no duplicates remain
+    dup_count = dissolved[code_col].duplicated().sum()
+    if dup_count > 0:
+        raise ValueError(f"dissolve_by_code: {dup_count} duplicate codes remain after dissolve")
 
     # Ensure all geometries are MultiPolygon
     dissolved["geometry"] = dissolved.geometry.apply(ensure_multipolygon)

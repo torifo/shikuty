@@ -103,6 +103,44 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/**
+ * ピースを50音順にソートしてグリッド配置する。
+ * @param pieces       全ピース配列（ox/oy を上書きする）
+ * @param scatterBox   スキャッタエリアの矩形 [x, y, w, h]
+ * @param pathGen      重心算出に使う geoPath
+ */
+function assignGridPositions(
+  pieces: PieceState[],
+  scatterBox: [number, number, number, number],
+  pathGen: d3.GeoPath
+): void {
+  const [bx, by, bw, bh] = scatterBox;
+  const n = pieces.length;
+  if (n === 0) return;
+
+  // 50音順ソート（安定ソートなので同名は元順を保つ）
+  pieces.sort((a, b) => a.name.localeCompare(b.name, "ja"));
+
+  // グリッドの列数: アスペクト比に合わせて決定
+  const aspect = bw / bh;
+  const cols = Math.max(1, Math.round(Math.sqrt(n * aspect)));
+  const rows = Math.ceil(n / cols);
+
+  const cellW = bw / cols;
+  const cellH = bh / rows;
+
+  pieces.forEach((piece, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    // セル中心
+    const cx = bx + cellW * (col + 0.5);
+    const cy = by + cellH * (row + 0.5);
+    const centroid = pathGen.centroid(piece.feature);
+    piece.ox = cx - centroid[0];
+    piece.oy = cy - centroid[1];
+  });
+}
+
 // --- Entry ---
 
 export async function startPuzzle(
@@ -265,32 +303,26 @@ export async function startPuzzle(
     );
   }
 
-  // --- Piece states ---
-  const pieces: PieceState[] = shuffle(puzzleFeatures).map((f) => {
-    const name = getName(f);
-    const centroid = pathGen.centroid(f);
-    let scatterX: number, scatterY: number;
-    if (isPhone) {
-      // スマホ: 下部にスキャッタ
-      scatterX = W * 0.05 + Math.random() * W * 0.85;
-      scatterY = H * 0.65 + Math.random() * H * 0.27;
-    } else if (isTablet) {
-      // タブレット: 右側にスキャッタ（やや狭め）
-      scatterX = W * 0.62 + Math.random() * W * 0.33;
-      scatterY = H * 0.05 + Math.random() * H * 0.84;
-    } else {
-      // PC: 右側にスキャッタ
-      scatterX = W * 0.62 + Math.random() * W * 0.3;
-      scatterY = H * 0.05 + Math.random() * H * 0.84;
-    }
-    return {
-      feature: f,
-      ox: scatterX - centroid[0],
-      oy: scatterY - centroid[1],
-      placed: false,
-      name,
-    };
-  });
+  // --- Piece states (50音順グリッド配置) ---
+  // ox/oy は assignGridPositions で上書きされるので 0 で初期化
+  const pieces: PieceState[] = puzzleFeatures.map((f) => ({
+    feature: f,
+    ox: 0,
+    oy: 0,
+    placed: false,
+    name: getName(f),
+  }));
+
+  // スキャッタエリアの定義（グリッド範囲）
+  let scatterBox: [number, number, number, number]; // [x, y, w, h]
+  if (isPhone) {
+    scatterBox = [W * 0.02, H * 0.63, W * 0.96, H * 0.32];
+  } else if (isTablet) {
+    scatterBox = [W * 0.60, H * 0.03, W * 0.38, H * 0.93];
+  } else {
+    scatterBox = [W * 0.57, H * 0.03, W * 0.41, H * 0.93];
+  }
+  assignGridPositions(pieces, scatterBox, pathGen);
 
   // --- Counter & Timer ---
   let placedCount = 0;
