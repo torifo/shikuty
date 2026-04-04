@@ -549,8 +549,10 @@ export async function startPuzzle(
         const centroid = pathGen.centroid(d.feature);
         if (centroid && isFinite(centroid[0]) && isFinite(centroid[1])) {
           const bounds = pathGen.bounds(d.feature);
-          const pieceW = bounds[1][0] - bounds[0][0];
-          const fontSize = Math.max(6, Math.min(14, pieceW * 0.25));
+          const pw = bounds[1][0] - bounds[0][0];
+          const ph = bounds[1][1] - bounds[0][1];
+          if (pw < 10 && ph < 10) return; // 極小ピースはラベル省略
+          const fontSize = Math.max(6, Math.min(13, Math.min(pw, ph) * 0.28));
           labelGroup
             .append("text")
             .attr("class", "piece-label")
@@ -755,24 +757,55 @@ export async function startPreview(
   }
 
   // 全ピースを正解位置に描画（地形色）
-  zoomG.append("g")
+  // ラベルより手前でパスを作り、hover イベントはパスに付ける
+  const pathGroup = zoomG.append("g")
     .selectAll<SVGPathElement, Feature<Geometry, AnyProps>>("path")
     .data(features)
     .join("path")
     .attr("d", d => pathGen(d) ?? "")
     .attr("fill", d => terrainColor((d.properties?.area_km2 as number) ?? 100))
     .style("stroke", "#555")
-    .style("stroke-width", 0.6);
+    .style("stroke-width", 0.6)
+    .style("cursor", "pointer");
 
-  // 全ラベルを表示
+  // ホバー / タップで名称ツールチップ表示
+  // （送り仮名 / よみがなは F-2 の DB データ整備後に追加予定）
+  const tip = d3.select(puzzleArea)
+    .append("div")
+    .attr("class", "tooltip preview-tooltip")
+    .style("display", "none");
+
+  pathGroup
+    .on("pointerenter", function(_ev, f) {
+      d3.select<SVGPathElement, Feature<Geometry, AnyProps>>(this)
+        .style("filter", "brightness(1.3)");
+      tip.style("display", "block").text(getNameLocal(f));
+    })
+    .on("pointermove", function(ev: PointerEvent) {
+      const r = puzzleArea.getBoundingClientRect();
+      tip
+        .style("left", ev.clientX - r.left + 14 + "px")
+        .style("top", ev.clientY - r.top - 10 + "px");
+    })
+    .on("pointerleave", function() {
+      d3.select<SVGPathElement, Feature<Geometry, AnyProps>>(this)
+        .style("filter", null);
+      tip.style("display", "none");
+    });
+
+  // 常時ラベル: ピースが十分大きい場合のみ表示（重なり防止）
+  // 幅・高さどちらかが MIN_LABEL_DIM px 未満なら省略し、ホバーで補完
+  const MIN_LABEL_DIM = 22;
   const labelGroup = zoomG.append("g").attr("class", "label-layer");
   features.forEach(f => {
     const name = getNameLocal(f);
     const centroid = pathGen.centroid(f);
     if (!centroid || !isFinite(centroid[0]) || !isFinite(centroid[1])) return;
     const bounds = pathGen.bounds(f);
-    const pieceW = bounds[1][0] - bounds[0][0];
-    const fontSize = Math.max(6, Math.min(14, pieceW * 0.25));
+    const pw = bounds[1][0] - bounds[0][0];
+    const ph = bounds[1][1] - bounds[0][1];
+    if (pw < MIN_LABEL_DIM || ph < MIN_LABEL_DIM) return;
+    const fontSize = Math.max(7, Math.min(13, Math.min(pw, ph) * 0.28));
     labelGroup.append("text")
       .attr("class", "piece-label")
       .attr("x", centroid[0])

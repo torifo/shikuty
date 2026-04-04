@@ -423,6 +423,16 @@ body {
   font-size: 12px;
 }
 
+/* プレビュー用ツールチップ（ホバー/タップ時の名称表示） */
+.preview-tooltip {
+  font-size: 14px !important;
+  font-weight: 700;
+  padding: 6px 12px !important;
+  border-color: #64ffda !important;
+  color: #64ffda !important;
+  pointer-events: none;
+}
+
 /* 模範解答ボタン */
 .btn-answer {
   padding: 10px 28px;
