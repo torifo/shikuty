@@ -391,8 +391,8 @@ export async function startPuzzle(
     timerEl.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }, 1000);
 
-  // --- Pre-create clipPaths for placed labels (in-game) ---
-  const labelDefs = zoomG.append("defs");
+  // --- Pre-create clipPaths for placed labels (SVG root defs, standard position) ---
+  const labelDefs = svg.append("defs");
   puzzleFeatures.forEach((f, i) => {
     labelDefs.append("clipPath").attr("id", `plc-${i}`)
       .append("path").attr("d", pathGen(f) ?? "");
@@ -559,14 +559,14 @@ export async function startPuzzle(
         el.on(".drag", null);
 
         // 名前ラベルを表示 (clipPath でピース境界からはみ出さない)
+        // フォントサイズ: min(pw,ph) を使い縦長・異形ピースでもはみ出さない
+        // zoomG 内なので拡大縮小でサイズが変わり，ズームインで小さなラベルも読める
         const centroid = pathGen.centroid(d.feature);
         if (centroid && isFinite(centroid[0]) && isFinite(centroid[1])) {
           const bounds = pathGen.bounds(d.feature);
           const pw = bounds[1][0] - bounds[0][0];
           const ph = bounds[1][1] - bounds[0][1];
-          const maxByWidth  = pw / Math.max(1, d.name.length);
-          const maxByHeight = ph * 0.55;
-          const fontSize = Math.min(13, maxByWidth, maxByHeight);
+          const fontSize = Math.min(13, Math.min(pw, ph) * 0.7 / Math.max(1, d.name.length));
           const pieceIdx = pieces.indexOf(d);
           labelGroup
             .append("text")
@@ -799,8 +799,8 @@ export async function startPreview(
     return yomi ? `${name}（${yomi}）` : name;
   }
 
-  // --- clipPaths for labels (ピース境界からはみ出さないよう) ---
-  const previewDefs = zoomG.append("defs");
+  // --- clipPaths for labels (SVG root defs, ピース境界からはみ出さないよう) ---
+  const previewDefs = svg.append("defs");
   features.forEach((f, i) => {
     previewDefs.append("clipPath").attr("id", `pvlc-${i}`)
       .append("path").attr("d", pathGen(f) ?? "");
@@ -841,8 +841,9 @@ export async function startPreview(
       tip.style("display", "none");
     });
 
-  // 常時ラベル: 全ピースに表示。clipPath でピース境界内に厳密にクリップ。
-  // CJK 文字は全角なので 1文字 ≈ fontSize px として幅を推定。
+  // 常時ラベル: 全ピースに表示。
+  // フォントサイズ: min(pw,ph) 基準で縦長・異形ピースでもはみ出さない大きさに設定。
+  // clipPath で残余のはみ出しをクリップ。zoomG 内なので拡大縮小でサイズが変わる。
   const labelGroup = zoomG.append("g").attr("class", "label-layer");
   features.forEach((f, i) => {
     const name = getNameLocal(f);
@@ -852,10 +853,8 @@ export async function startPreview(
     const bounds = pathGen.bounds(f);
     const pw = bounds[1][0] - bounds[0][0];
     const ph = bounds[1][1] - bounds[0][1];
-    const maxByWidth  = pw / Math.max(1, name.length);
-    const maxByHeight = ph * 0.55;
-    const fontSize = Math.min(13, maxByWidth, maxByHeight);
-    // clipPath があるので fontSize < 4px でも描画する（クリップで境界内に収まる）
+    // min(pw,ph) を使うことで縦長・横長どちらでも短辺に収まるフォントサイズになる
+    const fontSize = Math.min(13, Math.min(pw, ph) * 0.7 / Math.max(1, name.length));
     labelGroup.append("text")
       .attr("class", "piece-label")
       .attr("x", centroid[0])
