@@ -391,6 +391,13 @@ export async function startPuzzle(
     timerEl.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }, 1000);
 
+  // --- Pre-create clipPaths for placed labels (in-game) ---
+  const labelDefs = zoomG.append("defs");
+  puzzleFeatures.forEach((f, i) => {
+    labelDefs.append("clipPath").attr("id", `plc-${i}`)
+      .append("path").attr("d", pathGen(f) ?? "");
+  });
+
   // --- Draw pieces ---
   const pieceGroup = zoomG.append("g");
   const labelGroup = zoomG.append("g").attr("class", "label-layer");
@@ -413,11 +420,26 @@ export async function startPuzzle(
     .attr("class", "tooltip")
     .style("display", "none");
 
+  // ゲーム内ツールチップ: 政令市区は「市名+区名（よみがな）」形式
+  function getGameTooltip(d: PieceState): string {
+    const p = d.feature.properties!;
+    const district = (p.district_name as string) || "";
+    const municipality = (p.municipality_name as string) || "";
+    const yomi = (p.yomigana as string) || "";
+    let name: string;
+    if (municipality.endsWith("市") && district.endsWith("区")) {
+      name = municipality + district;
+    } else {
+      name = district || municipality || d.name;
+    }
+    return yomi ? `${name}（${yomi}）` : name;
+  }
+
   if (cfg.showTooltip) {
     pathEls
       .on("pointerenter", function (_ev: PointerEvent, d: PieceState) {
         if (d.placed) return;
-        tip.style("display", "block").text(d.name);
+        tip.style("display", "block").text(getGameTooltip(d));
       })
       .on("pointermove", function (ev: PointerEvent, d: PieceState) {
         if (d.placed) return;
@@ -474,9 +496,9 @@ export async function startPuzzle(
       d3.select(this).raise().classed("dragging", true);
       tip.style("display", "none");
 
-      // Show drag name bar (mobile)
+      // Show drag name bar (mobile): "名称（よみがな）" format
       if (cfg.showDragNameBar) {
-        dragNameBar.textContent = d.name;
+        dragNameBar.textContent = getGameTooltip(d);
         dragNameBar.style.display = "block";
       }
 
@@ -536,7 +558,7 @@ export async function startPuzzle(
         el.classed("placed", true);
         el.on(".drag", null);
 
-        // 名前ラベルを表示
+        // 名前ラベルを表示 (clipPath でピース境界からはみ出さない)
         const centroid = pathGen.centroid(d.feature);
         if (centroid && isFinite(centroid[0]) && isFinite(centroid[1])) {
           const bounds = pathGen.bounds(d.feature);
@@ -545,13 +567,14 @@ export async function startPuzzle(
           const maxByWidth  = pw / Math.max(1, d.name.length);
           const maxByHeight = ph * 0.55;
           const fontSize = Math.min(13, maxByWidth, maxByHeight);
-          if (fontSize < 4) return;
+          const pieceIdx = pieces.indexOf(d);
           labelGroup
             .append("text")
             .attr("class", "piece-label")
             .attr("x", centroid[0])
             .attr("y", centroid[1])
-            .attr("font-size", fontSize)
+            .attr("font-size", Math.max(2, fontSize))
+            .attr("clip-path", `url(#plc-${pieceIdx})`)
             .text(d.name);
         }
 
@@ -743,14 +766,47 @@ export async function startPreview(
   const projection = d3.geoIdentity().reflectY(true).fitExtent(fitExtentBox, mainFc);
   const pathGen = d3.geoPath(projection);
 
+  // ピース上に表示する名称（送り仮名なし・短い名称）
   function getNameLocal(f: Feature<Geometry, AnyProps>): string {
     const p = f.properties!;
     if (opts.mode === "japan") return (p.prefecture_name as string) ?? "";
-    return (p.municipality_name as string) || (p.district_name as string) || (p.full_name as string) || "";
+    // district_name（市区町村名）優先、郡名はフォールバック
+    return (p.district_name as string) || (p.municipality_name as string) || (p.full_name as string) || "";
   }
 
+  // ツールチップ/ドラッグバー用: 政令市区は「市名+区名」を連結して返す
+  function getDisplayName(f: Feature<Geometry, AnyProps>): string {
+    const p = f.properties!;
+    if (opts.mode === "japan") return (p.prefecture_name as string) ?? "";
+    const district = (p.district_name as string) || "";
+    const municipality = (p.municipality_name as string) || "";
+    // 政令市区: municipality が「○○市」かつ district が「○○区」
+    if (municipality.endsWith("市") && district.endsWith("区")) {
+      return municipality + district;
+    }
+    return district || municipality || (p.full_name as string) || "";
+  }
+
+  // よみがな取得（政令市区のみ patch_yomigana で設定済み）
+  function getYomigana(f: Feature<Geometry, AnyProps>): string {
+    return (f.properties?.yomigana as string) || "";
+  }
+
+  // ツールチップ文字列: 「名称（よみがな）」形式
+  function getTooltipText(f: Feature<Geometry, AnyProps>): string {
+    const name = getDisplayName(f);
+    const yomi = getYomigana(f);
+    return yomi ? `${name}（${yomi}）` : name;
+  }
+
+  // --- clipPaths for labels (ピース境界からはみ出さないよう) ---
+  const previewDefs = zoomG.append("defs");
+  features.forEach((f, i) => {
+    previewDefs.append("clipPath").attr("id", `pvlc-${i}`)
+      .append("path").attr("d", pathGen(f) ?? "");
+  });
+
   // 全ピースを正解位置に描画（地形色）
-  // ラベルより手前でパスを作り、hover イベントはパスに付ける
   const pathGroup = zoomG.append("g")
     .selectAll<SVGPathElement, Feature<Geometry, AnyProps>>("path")
     .data(features)
@@ -762,7 +818,6 @@ export async function startPreview(
     .style("cursor", "pointer");
 
   // ホバー / タップで名称ツールチップ表示
-  // （送り仮名 / よみがなは F-2 の DB データ整備後に追加予定）
   const tip = d3.select(puzzleArea)
     .append("div")
     .attr("class", "tooltip preview-tooltip")
@@ -772,7 +827,7 @@ export async function startPreview(
     .on("pointerenter", function(_ev, f) {
       d3.select<SVGPathElement, Feature<Geometry, AnyProps>>(this)
         .style("filter", "brightness(1.3)");
-      tip.style("display", "block").text(getNameLocal(f));
+      tip.style("display", "block").text(getTooltipText(f));
     })
     .on("pointermove", function(ev: PointerEvent) {
       const r = puzzleArea.getBoundingClientRect();
@@ -786,10 +841,10 @@ export async function startPreview(
       tip.style("display", "none");
     });
 
-  // 常時ラベル: 全ピースに表示。フォントはピース内に収まる最大サイズ。
+  // 常時ラベル: 全ピースに表示。clipPath でピース境界内に厳密にクリップ。
   // CJK 文字は全角なので 1文字 ≈ fontSize px として幅を推定。
   const labelGroup = zoomG.append("g").attr("class", "label-layer");
-  features.forEach(f => {
+  features.forEach((f, i) => {
     const name = getNameLocal(f);
     if (!name) return;
     const centroid = pathGen.centroid(f);
@@ -797,17 +852,16 @@ export async function startPreview(
     const bounds = pathGen.bounds(f);
     const pw = bounds[1][0] - bounds[0][0];
     const ph = bounds[1][1] - bounds[0][1];
-    // 幅: name.length文字が収まる最大フォント (CJK 1文字 ≈ 1em)
     const maxByWidth  = pw / Math.max(1, name.length);
-    // 高さ: ラベル1行分が収まるサイズ
     const maxByHeight = ph * 0.55;
     const fontSize = Math.min(13, maxByWidth, maxByHeight);
-    if (fontSize < 4) return; // 4px 未満は視認不可なので省略（ホバーで補完）
+    // clipPath があるので fontSize < 4px でも描画する（クリップで境界内に収まる）
     labelGroup.append("text")
       .attr("class", "piece-label")
       .attr("x", centroid[0])
       .attr("y", centroid[1])
-      .attr("font-size", fontSize)
+      .attr("font-size", Math.max(2, fontSize))
+      .attr("clip-path", `url(#pvlc-${i})`)
       .style("opacity", "1")
       .style("animation", "none")
       .text(name);
