@@ -94,15 +94,6 @@ function terrainColor(areaKm2: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 /**
  * ピースを50音順にソートしてグリッド配置する。
  * @param pieces       全ピース配列（ox/oy を上書きする）
