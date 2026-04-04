@@ -390,6 +390,103 @@ body {
   color: #64ffda;
 }
 
+/* モードカード + 完成形ボタン */
+.mode-card-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview-link {
+  background: none;
+  border: 1px solid #0f3460;
+  color: #64ffda;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.preview-link:hover {
+  background: #0f3460;
+  border-color: #64ffda;
+}
+
+.preview-badge {
+  background: #1a4a2e !important;
+  border: 1px solid #64ffda;
+  color: #64ffda !important;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* 模範解答ボタン */
+.btn-answer {
+  padding: 10px 28px;
+  background: transparent;
+  color: #64ffda;
+  border: 2px solid #64ffda;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-answer:hover {
+  background: rgba(100, 255, 218, 0.1);
+}
+
+/* 完成形プレビュー 注意アナウンスオーバーレイ */
+.preview-warning-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+
+.preview-warning-box {
+  background: #16213e;
+  border: 2px solid #64ffda;
+  border-radius: 12px;
+  padding: 32px 40px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.preview-warning-icon {
+  font-size: 40px;
+}
+
+.preview-warning-box h3 {
+  font-size: 20px;
+  color: #e6f1ff;
+}
+
+.preview-warning-box p {
+  font-size: 14px;
+  color: #a8b2d1;
+  line-height: 1.6;
+}
+
+.preview-warning-btns {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
 /* === タブレット (481px〜768px) === */
 @media (max-width: 768px) {
   .header h1 {

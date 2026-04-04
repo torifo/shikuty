@@ -141,15 +141,71 @@ function assignGridPositions(
   });
 }
 
+/**
+ * easyモード: 各ピースの重心位置をスキャッタエリア上に地理的にマッピング
+ * （北にある市は上部に、南にある市は下部に配置されるため大雑把な答えが分かる）
+ */
+function placePiecesEasy(
+  pieces: PieceState[],
+  scatterBox: [number, number, number, number],
+  pathGen: d3.GeoPath
+): void {
+  const [bx, by, bw, bh] = scatterBox;
+  const n = pieces.length;
+  if (n === 0) return;
+
+  const centroids = pieces.map(p => pathGen.centroid(p.feature));
+  const validCx = centroids.filter(c => isFinite(c[0])).map(c => c[0]);
+  const validCy = centroids.filter(c => isFinite(c[1])).map(c => c[1]);
+  if (validCx.length === 0) return;
+
+  const minX = Math.min(...validCx), maxX = Math.max(...validCx);
+  const minY = Math.min(...validCy), maxY = Math.max(...validCy);
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+
+  // ジッター幅: セル1個分の±50%
+  const cellSize = Math.sqrt((bw * bh) / n) * 0.7;
+
+  pieces.forEach((piece, i) => {
+    const [cx, cy] = centroids[i];
+    const fallback = !isFinite(cx) || !isFinite(cy);
+    const nx = fallback ? Math.random() : (cx - minX) / rangeX;
+    const ny = fallback ? Math.random() : (cy - minY) / rangeY;
+    const targetX = bx + nx * bw + (Math.random() - 0.5) * cellSize;
+    const targetY = by + ny * bh + (Math.random() - 0.5) * cellSize;
+    piece.ox = targetX - (fallback ? bx + bw / 2 : cx);
+    piece.oy = targetY - (fallback ? by + bh / 2 : cy);
+  });
+}
+
+/** hardモード: 完全ランダム配置＋描画順もシャッフル */
+function placePiecesHard(
+  pieces: PieceState[],
+  scatterBox: [number, number, number, number],
+  pathGen: d3.GeoPath
+): void {
+  const [bx, by, bw, bh] = scatterBox;
+  for (const piece of pieces) {
+    const [cx, cy] = pathGen.centroid(piece.feature);
+    piece.ox = bx + Math.random() * bw - (isFinite(cx) ? cx : bx + bw / 2);
+    piece.oy = by + Math.random() * bh - (isFinite(cy) ? cy : by + bh / 2);
+  }
+  // 描画 z-order もランダムに
+  pieces.sort(() => Math.random() - 0.5);
+}
+
 // --- Entry ---
 
 export async function startPuzzle(
   app: HTMLDivElement,
   opts: PuzzleOptions,
-  difficulty: Difficulty = "easy"
+  difficulty: Difficulty = "easy",
+  backFn?: () => void
 ): Promise<void> {
+  const goBack = backFn ?? (() => showModeSelect(app));
   const cfg = DIFFICULTY_CONFIG[difficulty];
-  const diffLabel = { easy: "かんたん", normal: "ふつう", hard: "むずかしい" }[difficulty];
+  const diffLabel: Record<Difficulty, string> = { easy: "かんたん", normal: "ふつう", hard: "むずかしい" };
 
   const title =
     opts.mode === "japan"
@@ -163,7 +219,7 @@ export async function startPuzzle(
       <button class="back-btn" id="back-btn">← 戻る</button>
       <h1>${title} パズル</h1>
       <div class="header-stats">
-        <span class="diff-label">${diffLabel}</span>
+        <span class="diff-label">${diffLabel[difficulty]}</span>
         <span>配置: <span class="value" id="count">0/0</span></span>
         <span>時間: <span class="value" id="timer">0:00</span></span>
       </div>
@@ -180,7 +236,7 @@ export async function startPuzzle(
 
   app.querySelector("#back-btn")!.addEventListener("click", () => {
     clearInterval(timerHandle);
-    showModeSelect(app);
+    goBack();
   });
 
   // --- Load TopoJSON ---
@@ -303,8 +359,7 @@ export async function startPuzzle(
     );
   }
 
-  // --- Piece states (50音順グリッド配置) ---
-  // ox/oy は assignGridPositions で上書きされるので 0 で初期化
+  // --- Piece states ---
   const pieces: PieceState[] = puzzleFeatures.map((f) => ({
     feature: f,
     ox: 0,
@@ -313,7 +368,7 @@ export async function startPuzzle(
     name: getName(f),
   }));
 
-  // スキャッタエリアの定義（グリッド範囲）
+  // スキャッタエリアの定義
   let scatterBox: [number, number, number, number]; // [x, y, w, h]
   if (isPhone) {
     scatterBox = [W * 0.02, H * 0.63, W * 0.96, H * 0.32];
@@ -322,7 +377,15 @@ export async function startPuzzle(
   } else {
     scatterBox = [W * 0.57, H * 0.03, W * 0.41, H * 0.93];
   }
-  assignGridPositions(pieces, scatterBox, pathGen);
+
+  // 難易度別ピース配置
+  if (difficulty === "normal") {
+    assignGridPositions(pieces, scatterBox, pathGen); // 50音順グリッド
+  } else if (difficulty === "easy") {
+    placePiecesEasy(pieces, scatterBox, pathGen);     // 地理バイアス
+  } else {
+    placePiecesHard(pieces, scatterBox, pathGen);     // 完全乱数
+  }
 
   // --- Counter & Timer ---
   let placedCount = 0;
@@ -502,7 +565,7 @@ export async function startPuzzle(
 
         if (placedCount === totalCount) {
           clearInterval(timerHandle);
-          showCompleteOverlay(app, puzzleArea, opts, difficulty, totalCount, t0);
+          showCompleteOverlay(app, puzzleArea, opts, difficulty, totalCount, t0, goBack);
         }
       }
     });
@@ -575,7 +638,8 @@ function showCompleteOverlay(
   opts: PuzzleOptions,
   difficulty: Difficulty,
   total: number,
-  t0: number
+  t0: number,
+  backFn: () => void
 ): void {
   const sec = Math.floor((Date.now() - t0) / 1000);
   const m = Math.floor(sec / 60);
@@ -594,14 +658,128 @@ function showCompleteOverlay(
     <p>${label} — ${total}ピース</p>
     <p>タイム: ${m}分${String(s).padStart(2, "0")}秒</p>
     <button class="btn-primary" id="retry-btn">もう一度</button>
-    <button class="back-btn" id="menu-btn" style="margin-top:8px;">モード選択に戻る</button>
+    <button class="btn-answer" id="answer-btn">模範解答を見る</button>
+    <button class="back-btn" id="menu-btn" style="margin-top:8px;">← 選択に戻る</button>
   `;
   puzzleArea.appendChild(overlay);
 
   overlay.querySelector("#retry-btn")!.addEventListener("click", () => {
-    startPuzzle(app, opts, difficulty);
+    startPuzzle(app, opts, difficulty, backFn);
   });
-  overlay.querySelector("#menu-btn")!.addEventListener("click", () => {
-    showModeSelect(app);
+  overlay.querySelector("#answer-btn")!.addEventListener("click", () => {
+    startPreview(app, opts, backFn);
+  });
+  overlay.querySelector("#menu-btn")!.addEventListener("click", backFn);
+}
+
+// --- Preview (完成形 / 模範解答) ---
+
+export async function startPreview(
+  app: HTMLDivElement,
+  opts: PuzzleOptions,
+  backFn?: () => void
+): Promise<void> {
+  const goBack = backFn ?? (() => showModeSelect(app));
+  const title =
+    opts.mode === "japan"
+      ? "全国 47都道府県"
+      : opts.mode === "region"
+        ? `${opts.name!} 地方`
+        : `${opts.name!}`;
+
+  app.innerHTML = `
+    <div class="header">
+      <button class="back-btn" id="back-btn">← 戻る</button>
+      <h1>${title}</h1>
+      <div class="header-stats">
+        <span class="diff-label preview-badge">完成形</span>
+      </div>
+    </div>
+    <div class="puzzle-screen">
+      <div class="puzzle-area">
+        <div class="loading">読み込み中...</div>
+      </div>
+    </div>
+  `;
+  app.querySelector("#back-btn")!.addEventListener("click", goBack);
+
+  // Load TopoJSON
+  let topo: Topology;
+  try {
+    const url =
+      opts.mode === "japan" ? "/api/v1/topojson/prefectures"
+      : opts.mode === "region" ? "/api/v1/topojson/japan"
+      : `/api/v1/topojson/prefectures/${opts.code}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    topo = await res.json();
+  } catch (e) {
+    console.error("Failed to load topojson:", e);
+    app.querySelector(".loading")!.textContent = "データの読み込みに失敗しました";
+    return;
+  }
+
+  const objectKey = Object.keys(topo.objects)[0];
+  const fc = topoFeature(topo, topo.objects[objectKey] as GeometryCollection) as FeatureCollection<Geometry, AnyProps>;
+
+  let features: Feature<Geometry, AnyProps>[];
+  if (opts.mode === "region" && opts.regionPrefCodes) {
+    const codes = new Set(opts.regionPrefCodes);
+    features = fc.features.filter(f => codes.has(f.properties!.prefecture_code as string));
+  } else {
+    features = fc.features;
+  }
+
+  app.querySelector(".loading")!.remove();
+  const puzzleArea = app.querySelector<HTMLDivElement>(".puzzle-area")!;
+  const rect = puzzleArea.getBoundingClientRect();
+  const W = rect.width || window.innerWidth;
+  const H = rect.height || window.innerHeight - 44;
+
+  const svg = d3.select(puzzleArea).append("svg").attr("width", W).attr("height", H);
+  const zoomG = svg.append("g");
+  svg.call(d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.5, 8]).on("zoom", ev => zoomG.attr("transform", ev.transform)));
+
+  const mainFc = buildMainExtentFc(features, opts.mode);
+  const isPhone = W <= 480;
+  const fitExtentBox: [[number, number], [number, number]] = isPhone
+    ? [[W * 0.04, H * 0.04], [W * 0.96, H * 0.96]]
+    : [[W * 0.04, H * 0.04], [W * 0.88, H * 0.96]];
+  const projection = d3.geoIdentity().reflectY(true).fitExtent(fitExtentBox, mainFc);
+  const pathGen = d3.geoPath(projection);
+
+  function getNameLocal(f: Feature<Geometry, AnyProps>): string {
+    const p = f.properties!;
+    if (opts.mode === "japan") return (p.prefecture_name as string) ?? "";
+    return (p.municipality_name as string) || (p.district_name as string) || (p.full_name as string) || "";
+  }
+
+  // 全ピースを正解位置に描画（地形色）
+  zoomG.append("g")
+    .selectAll<SVGPathElement, Feature<Geometry, AnyProps>>("path")
+    .data(features)
+    .join("path")
+    .attr("d", d => pathGen(d) ?? "")
+    .attr("fill", d => terrainColor((d.properties?.area_km2 as number) ?? 100))
+    .style("stroke", "#555")
+    .style("stroke-width", 0.6);
+
+  // 全ラベルを表示
+  const labelGroup = zoomG.append("g").attr("class", "label-layer");
+  features.forEach(f => {
+    const name = getNameLocal(f);
+    const centroid = pathGen.centroid(f);
+    if (!centroid || !isFinite(centroid[0]) || !isFinite(centroid[1])) return;
+    const bounds = pathGen.bounds(f);
+    const pieceW = bounds[1][0] - bounds[0][0];
+    const fontSize = Math.max(6, Math.min(14, pieceW * 0.25));
+    labelGroup.append("text")
+      .attr("class", "piece-label")
+      .attr("x", centroid[0])
+      .attr("y", centroid[1])
+      .attr("font-size", fontSize)
+      .style("opacity", "1")
+      .style("animation", "none")
+      .text(name);
   });
 }
