@@ -363,6 +363,95 @@ body {
   color: #64ffda;
 }
 
+/* ビュー切り替えタブ（地図 / 一覧） */
+.select-screen-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 3px;
+  background: #0a0a1e;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.view-tab {
+  background: transparent;
+  border: none;
+  color: #a8b2d1;
+  padding: 5px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.view-tab.active {
+  background: #0f3460;
+  color: #64ffda;
+  font-weight: 700;
+}
+
+.view-tab:hover:not(.active) {
+  color: #64ffda;
+}
+
+/* 地図/一覧 コンテンツ切り替えエリア */
+.view-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 700px;
+}
+
+/* 地図モード時: select-screen を flex-start, view-content が残り空間を埋める */
+.select-screen.map-mode {
+  justify-content: flex-start;
+  padding-top: 16px;
+  gap: 12px;
+}
+
+.select-screen.map-mode .view-content {
+  flex: 1;
+  min-height: 0;
+  justify-content: flex-start;
+}
+
+/* インタラクティブ日本地図SVG */
+.map-select-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.map-select-svg path.map-pref {
+  transition: fill 0.1s, opacity 0.1s;
+}
+
+/* 地図選択ツールチップ */
+.map-select-tooltip {
+  position: fixed;
+  background: rgba(15, 24, 54, 0.97);
+  border: 1px solid #64ffda;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #64ffda;
+  pointer-events: none;
+  z-index: 300;
+  white-space: nowrap;
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+}
+
 /* 地方選択 */
 .region-grid {
   display: grid;

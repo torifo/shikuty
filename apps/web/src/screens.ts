@@ -1,6 +1,7 @@
 import { PREFECTURES } from "./prefectures.ts";
 import { REGIONS } from "./regions.ts";
 import { startPuzzle, startPreview, type PuzzleOptions, type Difficulty } from "./engine.ts";
+import { renderPrefectureMap, renderRegionMap } from "./map-selector.ts";
 
 /** 現在の難易度（デフォルトはかんたん） */
 let currentDifficulty: Difficulty = "easy";
@@ -104,28 +105,75 @@ function showRegionSelect(app: HTMLDivElement, isPreview = false): void {
       <h1>市区町村パズル</h1>
       ${isPreview ? '<span class="diff-label preview-badge">完成形</span>' : '<div class="difficulty-toggle" id="diff-toggle"></div>'}
     </div>
-    <div class="select-screen">
-      <h2>${pageTitle}</h2>
-      <div class="region-grid"></div>
+    <div class="select-screen" id="select-screen">
+      <div class="select-screen-top">
+        <h2>${pageTitle}</h2>
+        <div class="view-tabs">
+          <button class="view-tab active" id="tab-map">地図</button>
+          <button class="view-tab" id="tab-list">一覧</button>
+        </div>
+      </div>
+      <div class="view-content" id="view-map-content"></div>
+      <div class="view-content" id="view-list-content" style="display:none">
+        <div class="region-grid"></div>
+      </div>
     </div>
   `;
 
   if (!isPreview) renderDifficultyToggle(app);
   app.querySelector("#back-btn")!.addEventListener("click", () => showModeSelect(app));
 
+  const selectScreen = app.querySelector<HTMLElement>("#select-screen")!;
+  const tabMap = app.querySelector<HTMLButtonElement>("#tab-map")!;
+  const tabList = app.querySelector<HTMLButtonElement>("#tab-list")!;
+  const mapContent = app.querySelector<HTMLElement>("#view-map-content")!;
+  const listContent = app.querySelector<HTMLElement>("#view-list-content")!;
+
+  let cleanupMap: (() => void) | null = null;
+
+  function selectRegion(regionName: string) {
+    const region = REGIONS.find((r) => r.name === regionName)!;
+    const opts: PuzzleOptions = { mode: "region", name: region.name, regionPrefCodes: region.prefCodes };
+    if (isPreview) {
+      startPreview(app, opts, () => showRegionSelect(app, true));
+    } else {
+      launchPuzzle(app, opts, () => showRegionSelect(app));
+    }
+  }
+
+  function showMapTab() {
+    tabMap.classList.add("active");
+    tabList.classList.remove("active");
+    mapContent.style.display = "";
+    listContent.style.display = "none";
+    selectScreen.classList.add("map-mode");
+    if (!cleanupMap) {
+      cleanupMap = renderRegionMap(mapContent, selectRegion);
+    }
+  }
+
+  function showListTab() {
+    tabMap.classList.remove("active");
+    tabList.classList.add("active");
+    mapContent.style.display = "none";
+    listContent.style.display = "";
+    selectScreen.classList.remove("map-mode");
+  }
+
+  tabMap.addEventListener("click", showMapTab);
+  tabList.addEventListener("click", showListTab);
+
+  // 地方一覧グリッド構築
   const grid = app.querySelector(".region-grid")!;
   for (const region of REGIONS) {
     const btn = document.createElement("button");
     btn.className = "region-btn";
     btn.innerHTML = `<span class="region-name">${region.name}</span>`;
-    const opts: PuzzleOptions = { mode: "region", name: region.name, regionPrefCodes: region.prefCodes };
-    if (isPreview) {
-      btn.addEventListener("click", () => startPreview(app, opts, () => showRegionSelect(app, true)));
-    } else {
-      btn.addEventListener("click", () => launchPuzzle(app, opts, () => showRegionSelect(app)));
-    }
+    btn.addEventListener("click", () => selectRegion(region.name));
     grid.appendChild(btn);
   }
+
+  showMapTab();
 }
 
 // --- 都道府県選択画面 ---
@@ -138,28 +186,74 @@ function showPrefectureSelect(app: HTMLDivElement, isPreview = false): void {
       <h1>市区町村パズル</h1>
       ${isPreview ? '<span class="diff-label preview-badge">完成形</span>' : '<div class="difficulty-toggle" id="diff-toggle"></div>'}
     </div>
-    <div class="select-screen">
-      <h2>${pageTitle}</h2>
-      <div class="prefecture-grid"></div>
+    <div class="select-screen" id="select-screen">
+      <div class="select-screen-top">
+        <h2>${pageTitle}</h2>
+        <div class="view-tabs">
+          <button class="view-tab active" id="tab-map">地図</button>
+          <button class="view-tab" id="tab-list">一覧</button>
+        </div>
+      </div>
+      <div class="view-content" id="view-map-content"></div>
+      <div class="view-content" id="view-list-content" style="display:none">
+        <div class="prefecture-grid"></div>
+      </div>
     </div>
   `;
 
   if (!isPreview) renderDifficultyToggle(app);
   app.querySelector("#back-btn")!.addEventListener("click", () => showModeSelect(app));
 
+  const selectScreen = app.querySelector<HTMLElement>("#select-screen")!;
+  const tabMap = app.querySelector<HTMLButtonElement>("#tab-map")!;
+  const tabList = app.querySelector<HTMLButtonElement>("#tab-list")!;
+  const mapContent = app.querySelector<HTMLElement>("#view-map-content")!;
+  const listContent = app.querySelector<HTMLElement>("#view-list-content")!;
+
+  let cleanupMap: (() => void) | null = null;
+
+  function selectPref(code: string, name: string) {
+    const opts: PuzzleOptions = { mode: "prefecture", code, name };
+    if (isPreview) {
+      startPreview(app, opts, () => showPrefectureSelect(app, true));
+    } else {
+      launchPuzzle(app, opts, () => showPrefectureSelect(app));
+    }
+  }
+
+  function showMapTab() {
+    tabMap.classList.add("active");
+    tabList.classList.remove("active");
+    mapContent.style.display = "";
+    listContent.style.display = "none";
+    selectScreen.classList.add("map-mode");
+    if (!cleanupMap) {
+      cleanupMap = renderPrefectureMap(mapContent, selectPref);
+    }
+  }
+
+  function showListTab() {
+    tabMap.classList.remove("active");
+    tabList.classList.add("active");
+    mapContent.style.display = "none";
+    listContent.style.display = "";
+    selectScreen.classList.remove("map-mode");
+  }
+
+  tabMap.addEventListener("click", showMapTab);
+  tabList.addEventListener("click", showListTab);
+
+  // 都道府県グリッド構築
   const grid = app.querySelector(".prefecture-grid")!;
   for (const pref of PREFECTURES) {
     const btn = document.createElement("button");
     btn.className = "prefecture-btn";
     btn.textContent = pref.name;
-    const opts: PuzzleOptions = { mode: "prefecture", code: pref.code, name: pref.name };
-    if (isPreview) {
-      btn.addEventListener("click", () => startPreview(app, opts, () => showPrefectureSelect(app, true)));
-    } else {
-      btn.addEventListener("click", () => launchPuzzle(app, opts, () => showPrefectureSelect(app)));
-    }
+    btn.addEventListener("click", () => selectPref(pref.code, pref.name));
     grid.appendChild(btn);
   }
+
+  showMapTab();
 }
 
 // --- Launch ---
